@@ -101,19 +101,19 @@ export class AppComponent implements AfterViewInit {
 
   addVideo(): void {
     // Generate random position within canvas bounds
-    const maxLeft = this.canvas.width! - 480;
-    const maxTop = this.canvas.height! - 360;
+    const maxLeft = this.canvas.width! - 1280;
+    const maxTop = this.canvas.height! - 720;
     const randomLeft = Math.random() * maxLeft;
     const randomTop = Math.random() * maxTop;
 
     const videoElement = document.createElement('video');
     const sourceElement = document.createElement('source');
     
-    videoElement.width = 480;
-    videoElement.height = 360;
+    videoElement.width = 1280;
+    videoElement.height = 720;
     videoElement.muted = true;
     videoElement.appendChild(sourceElement);
-    sourceElement.src = 'https://www.w3schools.com/html/mov_bbb.mp4'; // Replace with your video source
+    sourceElement.src = `https://res.cloudinary.com/diarzlyki/video/upload/v1738875626/prisma/Untitled_Project_V1_juf1l5.mp4`; // Random video source
     videoElement.onended = () => videoElement.play();
 
     const videoFabricImage = new FabricImage(videoElement, {
@@ -319,13 +319,10 @@ export class AppComponent implements AfterViewInit {
           
           this.canvas.loadFromJSON(jsonData, () => {
             console.log('Canvas loaded successfully!');
-            this.canvas.renderAll();
-          }).then(() => {
-            console.log('Canvas fully loaded!');
-          }).catch((error) => {
-            console.error('Error loading canvas:', error);
-          });
-
+            setTimeout(() => {
+              this.canvas.renderAll();
+            }, 1000);
+          })
         } catch (error) {
           console.error('Invalid JSON format:', error);
         }
