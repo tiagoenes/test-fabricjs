@@ -1,11 +1,11 @@
 import { Component, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
 import { Canvas, Rect, FabricImage, util, Control, TPointerEvent } from 'fabric';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [CommonModule],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -18,6 +18,13 @@ export class AppComponent implements AfterViewInit {
   private deleteImg!: HTMLImageElement;
   private editImg!: HTMLImageElement;
   private bringToFrontImg!: HTMLImageElement;
+  objects: { type: string; zIndex: number }[] = [];
+  public draggedIndex: number = -1;
+  private isDragging = false;
+  private startY = 0;
+  private startX = 0;
+  private initialTop = 0;
+  private initialLeft = 0;
 
   constructor() {}
 
@@ -34,10 +41,10 @@ export class AppComponent implements AfterViewInit {
   initializeCanvas(): void {
     this.canvas = new Canvas('canvasElementId');
     this.canvas.setDimensions({
-      width: 1920,
-      height: 1080
+      width: 1280,
+      height: 720
     });
-    this.canvas.backgroundColor = 'lightblue';
+    this.canvas.backgroundColor = 'lightgrey';
     this.canvas.renderAll();
   }
 
@@ -68,14 +75,10 @@ export class AppComponent implements AfterViewInit {
       cornerSize: 12
     });
 
-    // Get highest z-index and place new rectangle above it
-    const objects = this.canvas.getObjects();
-    const highestIndex = objects.length > 0 ? Math.max(...objects.map(obj => obj.get('zIndex') || 0)) : 0;
-    rectangle.set('zIndex', highestIndex + 1);
-
-    this.addControls(rectangle);
-    this.canvas.add(rectangle);
+    // Insert rectangle at the top layer
+    this.canvas.insertAt(this.canvas.getObjects().length,rectangle);
     this.canvas.renderAll();
+    this.updateObjectsList();
   }
 
   addImage(): void {
@@ -88,14 +91,21 @@ export class AppComponent implements AfterViewInit {
     FabricImage.fromURL('https://picsum.photos/200/200', {
       crossOrigin: 'anonymous'
     }).then((img) => {
+      // Get highest z-index and place new image above it
+      const objects = this.canvas.getObjects();
+      const highestIndex = objects.length > 0 ? Math.max(...objects.map(obj => obj.get('zIndex') || 0)) : 0;
+      
       img.set({
-        left: randomLeft,
-        top: randomTop
+        left: Math.min(randomLeft, this.canvas.width! - img.width!),
+        top: Math.min(randomTop, this.canvas.height! - img.height!),
+        zIndex: highestIndex + 1
       });
 
       this.addControls(img, true);
-      this.canvas.add(img);
+      // Insert image at the top layer
+      this.canvas.insertAt(this.canvas.getObjects().length, img);
       this.canvas.renderAll();
+      this.updateObjectsList();
     });
   }
 
@@ -117,15 +127,15 @@ export class AppComponent implements AfterViewInit {
     videoElement.onended = () => videoElement.play();
 
     const videoFabricImage = new FabricImage(videoElement, {
-      left: randomLeft,
-      top: randomTop,
+      left: Math.min(randomLeft, this.canvas.width! - videoElement.width),
+      top: Math.min(randomTop, this.canvas.height! - videoElement.height),
       originX: 'center',
       originY: 'center',
       objectCaching: false,
     });
 
-    this.addControls(videoFabricImage, false);
-    this.canvas.add(videoFabricImage);
+    // Insert video at the top layer
+    this.canvas.insertAt(this.canvas.getObjects().length, videoFabricImage);
     videoElement.play();
 
     // Set up animation frame to continuously render the canvas
@@ -134,6 +144,7 @@ export class AppComponent implements AfterViewInit {
       requestAnimationFrame(render);
     };
     requestAnimationFrame(render);
+    this.updateObjectsList();
   }
 
   private addControls(obj: any, isImage: boolean = false): void {
@@ -187,9 +198,18 @@ export class AppComponent implements AfterViewInit {
         cursorStyle: 'pointer',
         mouseUpHandler: (eventData: TPointerEvent, transform: any) => {
           const target = transform.target;
-          target.absolutePositioned = true;
-          this.canvas.setActiveObject(target);
+          const objects = this.canvas.getObjects();
+          
+          objects.sort((a, b) => (a.get('zIndex') || 0) - (b.get('zIndex') || 0));
+          
+          objects.forEach((obj, index) => {
+            obj.set('zIndex', index);
+          });
+          
+          target.set('zIndex', objects.length);
+          target.bringToFront();
           this.canvas.requestRenderAll();
+          this.updateObjectsList();
         },
         render: (ctx: CanvasRenderingContext2D, left: number, top: number, styleOverride: any, fabricObject: any) => {
           const size = styleOverride.cornerSize || 24;
@@ -229,8 +249,8 @@ export class AppComponent implements AfterViewInit {
             });
             this.canvas.remove(img);
             this.addControls(newImg, true);
-            this.canvas.add(newImg);
-            this.canvas.requestRenderAll();
+            this.canvas.insertAt(this.canvas.getObjects().length, newImg);
+            this.canvas.renderAll();
           });
         };
         reader.readAsDataURL(file);
@@ -281,9 +301,9 @@ export class AppComponent implements AfterViewInit {
 
             this.canvas.remove(video);
             this.addControls(newVideoFabricImage, false);
-            this.canvas.add(newVideoFabricImage);
+            this.canvas.insertAt(this.canvas.getObjects().length, newVideoFabricImage);
             newVideoElement.play();
-            this.canvas.requestRenderAll();
+            this.canvas.renderAll();
           };
           
           newVideoElement.src = videoUrl;
@@ -319,10 +339,24 @@ export class AppComponent implements AfterViewInit {
           
           this.canvas.loadFromJSON(jsonData, () => {
             console.log('Canvas loaded successfully!');
-            setTimeout(() => {
-              this.canvas.renderAll();
-            }, 1000);
-          })
+            // Add controls to all objects after loading
+            this.canvas.getObjects().forEach(obj => {
+              const isVideo = obj instanceof FabricImage && obj.getElement() instanceof HTMLVideoElement;
+              const isImage = obj instanceof FabricImage && !(obj.getElement() instanceof HTMLVideoElement);
+              
+              this.addControls(obj, isImage);
+              
+              // Restart video playback if it's a video
+              if (isVideo) {
+                const videoElement = obj.getElement() as HTMLVideoElement;
+                videoElement.play();
+                videoElement.onended = () => videoElement.play();
+              }
+            });
+            
+            this.canvas.renderAll();
+            this.updateObjectsList();
+          });
         } catch (error) {
           console.error('Invalid JSON format:', error);
         }
@@ -352,5 +386,96 @@ export class AppComponent implements AfterViewInit {
     const canvas = target.canvas;
     canvas.remove(target);
     canvas.requestRenderAll();
+    this.updateObjectsList();
+  }
+
+  private updateObjectsList(): void {
+    const canvasObjects = this.canvas.getObjects();
+    // Map objects in their natural order (removed .reverse())
+    this.objects = canvasObjects.map(obj => ({
+      type: obj instanceof Rect ? 'Rectangle' : 
+            obj instanceof FabricImage && (obj.getElement() instanceof HTMLVideoElement) ? 'Video' : 'Image',
+      zIndex: obj.get('zIndex') || 0
+    }));
+
+    // Sort canvas objects by z-index in descending order (changed to descending)
+    canvasObjects.sort((a, b) => (b.get('zIndex') || 0) - (a.get('zIndex') || 0));
+
+    // Update z-indices to match the new order
+    canvasObjects.forEach((obj, index) => {
+      obj.set('zIndex', canvasObjects.length - 1 - index); // Invert the z-index assignment
+    });
+
+    // Set the top object as active
+    if (canvasObjects.length > 0) {
+      this.canvas.setActiveObject(canvasObjects[0]); // Changed to get first object (highest z-index)
+    }
+  }
+
+  onDragStart(index: number) {
+    this.draggedIndex = index;
+  }
+
+  onDragOver(event: DragEvent) {
+    event.preventDefault();
+  }
+
+  onDrop(event: DragEvent, dropIndex: number) {
+    event.preventDefault();
+    if (this.draggedIndex === dropIndex) return;
+
+    // Reorder array
+    const item = this.objects[this.draggedIndex];
+    this.objects.splice(this.draggedIndex, 1);
+    this.objects.splice(dropIndex, 0, item);
+
+    // Get all canvas objects
+    const canvasObjects = this.canvas.getObjects();
+
+    // Update object positions based on new order
+    this.objects.forEach((obj, index) => {
+      const canvasObj = canvasObjects.find(
+        cObj => (cObj instanceof Rect && obj.type === 'Rectangle') ||
+                (cObj instanceof FabricImage && obj.type === (cObj.getElement() instanceof HTMLVideoElement ? 'Video' : 'Image'))
+      );
+      if (canvasObj) {
+        // Remove and insert at new position
+        this.canvas.remove(canvasObj);
+        this.canvas.insertAt(index, canvasObj);
+      }
+    });
+
+    this.canvas.renderAll();
+    this.draggedIndex = -1;
+  }
+
+  onContainerMouseDown(event: MouseEvent) {
+    this.isDragging = true;
+    this.startY = event.clientY;
+    this.startX = event.clientX;
+    
+    const container = (event.target as HTMLElement).closest('.objects-list-container') as HTMLElement;
+    const rect = container.getBoundingClientRect();
+    this.initialTop = rect.top;
+    this.initialLeft = rect.left;
+    
+    // Prevent text selection while dragging
+    event.preventDefault();
+  }
+
+  onContainerMouseMove(event: MouseEvent) {
+    if (!this.isDragging) return;
+    
+    const container = (event.target as HTMLElement).closest('.objects-list-container') as HTMLElement;
+    const deltaY = event.clientY - this.startY;
+    const deltaX = event.clientX - this.startX;
+    
+    container.style.position = 'fixed';
+    container.style.top = `${this.initialTop + deltaY}px`;
+    container.style.left = `${this.initialLeft + deltaX}px`;
+  }
+
+  onContainerMouseUp() {
+    this.isDragging = false;
   }
 }

@@ -1,5 +1,5 @@
 <div style="text-align:center;">
-  <canvas id="canvasElementId"></canvas>
+  <canvas style="width:800px;aspect-ratio:16/9;" id="canvasElementId"></canvas>
 </div>
 <!-- button import from json -->
 <button (click)="openFilePicker()">Import JSON</button>
@@ -10,3 +10,26 @@
 <button (click)="addImage()">Add Image</button>
 <button (click)="addVideo()">Add Video</button>
 
+<!-- create a list of objects and the zindex position they are in -->
+<div class="objects-list-container" 
+     (mousemove)="onContainerMouseMove($event)"
+     (mouseup)="onContainerMouseUp()"
+     (mouseleave)="onContainerMouseUp()">
+  <div class="objects-list-header">
+    <span class="drag-handle" 
+          (mousedown)="onContainerMouseDown($event)">⋮⋮</span>
+    Layers
+  </div>
+  <div class="objects-list">
+    <div *ngFor="let object of objects; let i = index"
+         class="object-item"
+         [class.dragging]="i === draggedIndex"
+         draggable="true"
+         (dragstart)="onDragStart(i)"
+         (dragover)="onDragOver($event)"
+         (drop)="onDrop($event, i)">
+      <span class="drag-handle">⋮⋮</span>
+      {{ object.type }}
+    </div>
+  </div>
+</div>
