@@ -8,115 +8,115 @@
 
 .objects-list-container {
   position: fixed;
-  top: 20px;
   right: 20px;
-  width: 250px;
+  top: 20px;
   background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  width: 250px;
   z-index: 1000;
+}
+.objects-list-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: #f5f5f5;
+  border-radius: 8px 8px 0 0;
+  cursor: move;
+  user-select: none;
 
-  .objects-list-header {
-    display: flex;
-    align-items: center;
-    padding: 12px 16px;
-    background: #f5f5f5;
-    border-radius: 8px 8px 0 0;
-    cursor: move;
-    user-select: none;
-
-    h3 {
-      margin: 0;
-      font-size: 16px;
-      font-weight: 600;
-      color: #333;
-      flex-grow: 1;
-    }
-
-    .drag-handle {
-      cursor: move;
-      padding: 4px;
-      
-      &::before {
-        content: "⋮";
-        font-size: 20px;
-        color: #666;
-      }
-    }
+  h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    flex-grow: 1;
   }
 
-  .objects-list {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    max-height: 300px;
-    overflow-y: auto;
-
-    li {
-      padding: 10px 16px;
-      border-bottom: 1px solid #eee;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      transition: background-color 0.2s;
-
-      &:hover {
-        background-color: #f8f8f8;
-      }
-
-      &.selected {
-        background-color: #e3f2fd;
-        color: #1976d2;
-      }
-
-      &:last-child {
-        border-bottom: none;
-      }
-
-      // Optional: Add an icon before each layer type
-      &::before {
-        content: "";
-        display: inline-block;
-        width: 16px;
-        height: 16px;
-        margin-right: 8px;
-        background-size: contain;
-        background-repeat: no-repeat;
-      }
-
-      &[data-type^="Rectangle"]::before {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='3' width='18' height='18' fill='%23ff5252'/%3E%3C/svg%3E");
-      }
-
-      &[data-type^="Image"]::before {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z' fill='%234caf50'/%3E%3C/svg%3E");
-      }
-
-      &[data-type^="Video"]::before {
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z' fill='%232196f3'/%3E%3C/svg%3E");
-      }
+  .drag-handle {
+    cursor: move;
+    padding: 4px;
+    
+    &::before {
+      content: "⋮";
+      font-size: 20px;
+      color: #666;
     }
   }
 }
+
+.objects-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 300px;
+  overflow-y: auto;
+
+  li {
+    padding: 10px 16px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: background-color 0.2s;
+
+    &:hover {
+      background-color: #f8f8f8;
+    }
+
+    &.selected {
+      background-color: #e3f2fd;
+      color: #1976d2;
+    }
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    // Optional: Add an icon before each layer type
+    &::before {
+      content: "";
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      margin-right: 8px;
+      background-size: contain;
+      background-repeat: no-repeat;
+    }
+
+    &[data-type^="Rectangle"]::before {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='3' y='3' width='18' height='18' fill='%23ff5252'/%3E%3C/svg%3E");
+    }
+
+    &[data-type^="Image"]::before {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z' fill='%234caf50'/%3E%3C/svg%3E");
+    }
+
+    &[data-type^="Video"]::before {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z' fill='%232196f3'/%3E%3C/svg%3E");
+    }
+  }
+}
+
 
 // Add scrollbar styling
 .objects-list::-webkit-scrollbar {
-  width: 6px;
+width: 6px;
 }
 
 .objects-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
+background: #f1f1f1;
 }
 
 .objects-list::-webkit-scrollbar-thumb {
-  background: #888;
-  border-radius: 3px;
+background: #888;
+border-radius: 3px;
 }
 
 .objects-list::-webkit-scrollbar-thumb:hover {
-  background: #555;
+background: #555;
 }
-
 .objects-list-header {
   padding: 10px;
   background: #f5f5f5;
@@ -232,5 +232,73 @@
   
   &:hover {
     background: #f0f0f0;
+  }
+}
+
+.color-picker-container {
+  position: fixed;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  z-index: 1000;
+  width: 250px;
+  padding: 10px;
+
+  .color-picker-header {
+    display: flex;
+    align-items: center;
+    padding: 5px;
+    cursor: move;
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+    margin: -10px -10px 10px -10px;
+    border-radius: 4px 4px 0 0;
+
+    .drag-handle {
+      margin-right: 10px;
+      cursor: move;
+      color: #666;
+    }
+
+    h3 {
+      margin: 0;
+      font-size: 14px;
+    }
+  }
+
+  .color-picker-colors {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    align-items: center;
+    width: 100%;
+  }
+
+  .color-picker-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 1px solid #ddd;
+    transition: transform 0.2s;
+
+    &:hover {
+      transform: scale(1.1);
+    }
+
+    &.selected {
+      border-color: #000;
+      border-width: 2px;
+    }
+  }
+
+  .selected-color-preview {
+    height: 20px;
+    width: 20px;
+    flex: 1;
+    border-radius: 4px;
+    border: 2px solid #ddd;
+    margin: 0;
   }
 }
