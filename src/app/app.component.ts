@@ -28,7 +28,7 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
   layers: { type: string; zIndex: number }[] = [];
   public draggedIndex: number = -1;
   public selectedObjectIndex: number | null = null;
-  
+  colors: string[] = ['#FF5722', '#2196F3', '#4CAF50', '#FFC107', '#9C27B0', '#E91E63', '#607D8B', '#FF9800'];
   // Dragging state
   private isDragging = false;
   private startY = 0;
@@ -50,6 +50,16 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
 
   // Add this property at the top with other class properties
   private isUploading = false;
+
+  // Add these new properties
+  public colorPickerLeft: number = 0;
+  public colorPickerTop: number = 0;
+  private isColorPickerDragging = false;
+  private colorPickerStartX = 0;
+  private colorPickerStartY = 0;
+  private colorPickerInitialLeft = 0;
+  private colorPickerInitialTop = 0;
+  public selectedColor: string = '#FF5722'; // Default selected color
 
   constructor(
     private cloudinaryService: CloudinaryService,
@@ -101,6 +111,14 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
       this.bringToFrontImg = document.createElement('img');
       this.bringToFrontImg.src = this.bringToFrontIcon;
       this.initializeCanvas();
+
+      // Add this after canvas initialization
+      // Position color picker in the middle top
+      const colorPicker = document.querySelector('.color-picker-container') as HTMLElement;
+      if (colorPicker) {
+        this.colorPickerLeft = (window.innerWidth - colorPicker.offsetWidth) / 2;
+        this.colorPickerTop = 20; // 20px from top
+      }
     }
   }
 
@@ -120,11 +138,11 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
     const maxTop = this.canvas.height! - 100;
     const randomLeft = Math.random() * maxLeft;
     const randomTop = Math.random() * maxTop;
-
+    const randomColor = '#' + Math.floor(Math.random()*16777215).toString(16);
     const rectangle = new Rect({
       left: randomLeft,
       top: randomTop,
-      fill: 'red',
+      fill: this.selectedColor,
       width: 100,
       height: 100,
       originX: 'left', // Ensure left alignment
@@ -725,11 +743,20 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
       container.style.left = `${this.optionsInitialLeft + deltaX}px`;
       container.style.top = `${this.optionsInitialTop + deltaY}px`;
     }
+
+    if (this.isColorPickerDragging) {
+      const deltaX = event.clientX - this.colorPickerStartX;
+      const deltaY = event.clientY - this.colorPickerStartY;
+
+      this.colorPickerLeft = this.colorPickerInitialLeft + deltaX;
+      this.colorPickerTop = this.colorPickerInitialTop + deltaY;
+    }
   }
 
   private onMouseUp() {
     this.isDragging = false;
     this.isOptionsDragging = false;
+    this.isColorPickerDragging = false;
   }
 
   onListItemClick(index: number): void {
@@ -771,5 +798,29 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
     
     // Initialize new canvas
     this.initializeCanvas();
+  }
+
+  onColorPickerMouseDown(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.color-picker-header .drag-handle')) return;
+
+    this.isColorPickerDragging = true;
+    this.colorPickerStartX = event.clientX;
+    this.colorPickerStartY = event.clientY;
+    
+    const container = target.closest('.color-picker-container') as HTMLElement;
+    this.colorPickerInitialLeft = this.colorPickerLeft;
+    this.colorPickerInitialTop = this.colorPickerTop;
+    
+    event.preventDefault();
+  }
+
+  selectColor(color: string) {
+    this.selectedColor = color;
+    const activeObject = this.canvas.getActiveObject();
+    if (activeObject && activeObject instanceof Rect) {
+      activeObject.set('fill', color);
+      this.canvas.renderAll();
+    }
   }
 }

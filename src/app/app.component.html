@@ -17,26 +17,39 @@
     <button (click)="clearCanvas()">Clear Canvas</button>
   </div>
 </div>
-
-<!-- create a list of objects and the zindex position they are in -->
-<div class="objects-list-container" 
-     (mousedown)="onContainerMouseDown($event)">
-  <div class="objects-list-header">
-    <span class="drag-handle">⋮⋮</span>
-    Layers
+<!-- create a color picker with 8 default colors and a color picker in the end -->
+<div class="color-picker-container" [style.left.px]="colorPickerLeft" [style.top.px]="colorPickerTop">
+  <div class="color-picker-header" (mousedown)="onColorPickerMouseDown($event)">
+    <div class="drag-handle">⋮⋮</div>
+    <h3>Color Picker</h3>
   </div>
-  <div class="objects-list">
-    <div *ngFor="let object of layers; let i = index"
-         class="list-item" 
-         [class.selected]="i === selectedObjectIndex"
-         draggable="true"
-         (dragstart)="onDragStart($event, i)"
-         (dragover)="onDragOver($event)"
-         (dragleave)="onDragLeave($event)"
-         (drop)="onDrop($event, i)"
-         (click)="onListItemClick(i)">
-      <span class="drag-handle">⋮⋮</span>
-      {{ object.type }}
+  <div class="color-picker-colors">
+    <div 
+      class="color-picker-color" 
+      *ngFor="let color of colors" 
+      [style.background-color]="color"
+      [class.selected]="selectedColor === color"
+      (click)="selectColor(color)">
     </div>
   </div>
+</div>
+<div class="objects-list-container">
+  <div class="objects-list-header">
+    <h3>Layers</h3>
+    <div class="drag-handle"></div>
+  </div>
+  <ul class="objects-list">
+    <!-- if a scare set the color of the small square to to the same color as the object -->
+    <li *ngFor="let layer of layers; let i = index" 
+        [class.selected]="selectedObjectIndex === i"
+        [attr.data-type]="layer.type"
+        (click)="onListItemClick(i)"
+        draggable="true"
+        (dragstart)="onDragStart($event, i)"
+        
+        (dragover)="onDragOver($event)"
+        (drop)="onDrop($event, i)">
+      {{ layer.type }}
+    </li>
+  </ul>
 </div>
