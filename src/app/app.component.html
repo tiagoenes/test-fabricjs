@@ -10,10 +10,11 @@
     <button (click)="addRectangle()">Add Rectangle</button>
     <button (click)="addImage()">Add Image</button>
     <button (click)="addVideo()">Add Video</button>
-    <button (click)="saveToJson()">Save to JSON</button>
     <button (click)="exportJsonFile()">Export JSON</button>
     <input #fileInput type="file" (change)="loadJsonFile($event)" style="display: none;">
     <button (click)="openFilePicker()">Load JSON</button>
+    <!-- add a button to clear the canvas -->
+    <button (click)="clearCanvas()">Clear Canvas</button>
   </div>
 </div>
 

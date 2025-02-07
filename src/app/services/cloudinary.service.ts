@@ -1,26 +1,27 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { firstValueFrom } from 'rxjs';
-
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+import {environment} from '../../environments/environment';
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 export class CloudinaryService {
-  private cloudName = 'diarzlyki';
-  private uploadPreset = 'ml_default'; // Use this preset configured for unsigned uploads
+  private cloudName = environment.cloudinaryCloudName; // Replace with your Cloudinary cloud name
+  private uploadPreset = environment.cloudinaryUploadPreset; // Use your actual upload preset name from Cloudinary
 
   constructor(private http: HttpClient) {}
 
-  async uploadFile(file: File): Promise<string> {
+  uploadFile(file: File): Observable<string> {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', this.uploadPreset);
-    formData.append('cloud_name', this.cloudName);
 
-    const response = await firstValueFrom(
-      this.http.post<any>(`https://api.cloudinary.com/v1_1/${this.cloudName}/upload`, formData)
+    return this.http.post<{ secure_url: string }>(
+      `https://api.cloudinary.com/v1_1/${this.cloudName}/upload`, 
+      formData
+    ).pipe(
+      map(response => response.secure_url)
     );
-    
-    return response.secure_url;
   }
 }

@@ -1,11 +1,16 @@
 import { Component, AfterViewInit, ElementRef, ViewChild, OnInit, OnDestroy } from '@angular/core';
 import { Canvas, Rect, FabricImage, util, Control, TPointerEvent } from 'fabric';
 import { CommonModule } from '@angular/common';
+import { CloudinaryService } from './services/cloudinary.service';
+import { HttpClientModule } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { JsonbinService } from './services/jsonbin.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, HttpClientModule],
+  providers: [CloudinaryService, JsonbinService],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
@@ -43,7 +48,13 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
   private optionsInitialTop = 0;
   private optionsInitialLeft = 0;
 
-  constructor() {}
+  // Add this property at the top with other class properties
+  private isUploading = false;
+
+  constructor(
+    private cloudinaryService: CloudinaryService,
+    private jsonbinService: JsonbinService
+  ) {}
 
   ngOnInit() {
     if (typeof window !== 'undefined') {
@@ -104,7 +115,7 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   addRectangle(): void {
-    // Generate random position within canvas bounds
+    // Generate random position within canvas bounds, starting from top-left (0,0)
     const maxLeft = this.canvas.width! - 100;
     const maxTop = this.canvas.height! - 100;
     const randomLeft = Math.random() * maxLeft;
@@ -116,6 +127,8 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
       fill: 'red',
       width: 100,
       height: 100,
+      originX: 'left', // Ensure left alignment
+      originY: 'top',  // Ensure top alignment
       hasControls: true,
       hasBorders: true,
       hasRotatingPoint: true,
@@ -137,72 +150,240 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
     this.updateObjectsList();
   }
 
-  addImage(): void {
-    // Generate random position within canvas bounds
+  private async handleImageEdit(img: FabricImage): Promise<void> {
+    if (this.isUploading) {
+      console.log('Upload in progress, please wait...');
+      return;
+    }
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
+
+    fileInput.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+
+      if (file) {
+        try {
+          this.isUploading = true;
+          const cloudinaryUrl = await firstValueFrom(this.cloudinaryService.uploadFile(file));
+          
+          if (cloudinaryUrl) {
+            FabricImage.fromURL(cloudinaryUrl, {
+              crossOrigin: 'anonymous'
+            }).then((newImg) => {
+              newImg.set({
+                left: img.left,
+                top: img.top,
+                scaleX: img.scaleX,
+                scaleY: img.scaleY,
+                angle: img.angle,
+                absolutePositioned: img.absolutePositioned
+              });
+              this.canvas.remove(img);
+              this.addControls(newImg, true);
+              this.canvas.insertAt(this.canvas.getObjects().length, newImg);
+              this.canvas.renderAll();
+            });
+          }
+        } catch (error) {
+          console.error('Error uploading image:', error);
+        } finally {
+          this.isUploading = false;
+        }
+      }
+    };
+
+    fileInput.click();
+  }
+
+  private async handleVideoEdit(video: FabricImage): Promise<void> {
+    if (this.isUploading) {
+      console.log('Upload in progress, please wait...');
+      return;
+    }
+
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'video/*';
+
+    fileInput.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+
+      if (file) {
+        try {
+          this.isUploading = true;
+          const cloudinaryUrl = await firstValueFrom(this.cloudinaryService.uploadFile(file));
+          
+          const newVideoElement = document.createElement('video');
+          const newSourceElement = document.createElement('source');
+          
+          newVideoElement.onloadedmetadata = () => {
+            const originalWidth = newVideoElement.videoWidth;
+            const originalHeight = newVideoElement.videoHeight;
+            
+            newVideoElement.width = originalWidth;
+            newVideoElement.height = originalHeight;
+            newVideoElement.muted = true;
+            newVideoElement.appendChild(newSourceElement);
+            newSourceElement.src = cloudinaryUrl;
+            newVideoElement.onended = () => newVideoElement.play();
+
+            const newVideoFabricImage = new FabricImage(newVideoElement, {
+              left: video.left,
+              top: video.top,
+              width: originalWidth,
+              height: originalHeight,
+              angle: video.angle,
+              absolutePositioned: video.absolutePositioned,
+              originX: 'center',
+              originY: 'center',
+              objectCaching: false,
+            });
+
+            this.canvas.remove(video);
+            this.addControls(newVideoFabricImage, false);
+            this.canvas.insertAt(this.canvas.getObjects().length, newVideoFabricImage);
+            newVideoElement.play();
+            this.canvas.renderAll();
+          };
+          
+          newVideoElement.src = cloudinaryUrl;
+        } catch (error) {
+          console.error('Error uploading video:', error);
+        } finally {
+          this.isUploading = false;
+        }
+      }
+    };
+
+    fileInput.click();
+  }
+
+  async addImage(): Promise<void> {
+    if (this.isUploading) {
+      console.log('Upload in progress, please wait...');
+      return;
+    }
+
+    // Generate random position from top-left (0,0)
     const maxLeft = this.canvas.width! - 200;
     const maxTop = this.canvas.height! - 200;
     const randomLeft = Math.random() * maxLeft;
     const randomTop = Math.random() * maxTop;
 
-    FabricImage.fromURL('https://picsum.photos/200/200', {
-      crossOrigin: 'anonymous'
-    }).then((img) => {
-      // Get highest z-index and place new image above it
-      const objects = this.canvas.getObjects();
-      const highestIndex = objects.length > 0 ? Math.max(...objects.map(obj => obj.get('zIndex') || 0)) : 0;
-      
-      img.set({
-        left: Math.min(randomLeft, this.canvas.width! - img.width!),
-        top: Math.min(randomTop, this.canvas.height! - img.height!),
-        zIndex: highestIndex + 1
-      });
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'image/*';
 
-      this.addControls(img, true);
-      // Insert image at the top layer
-      this.canvas.insertAt(this.canvas.getObjects().length, img);
-      this.canvas.setActiveObject(img);
-      this.canvas.renderAll();
-      this.updateObjectsList();
-    });
+    fileInput.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
+
+      if (file) {
+        try {
+          this.isUploading = true;
+          const cloudinaryUrl = await firstValueFrom(this.cloudinaryService.uploadFile(file));
+          
+          FabricImage.fromURL(cloudinaryUrl, {
+            crossOrigin: 'anonymous'
+          }).then((img) => {
+            const objects = this.canvas.getObjects();
+            const highestIndex = objects.length > 0 ? Math.max(...objects.map(obj => obj.get('zIndex') || 0)) : 0;
+            
+            img.set({
+              left: Math.min(randomLeft, this.canvas.width! - img.width!),
+              top: Math.min(randomTop, this.canvas.height! - img.height!),
+              originX: 'left', // Ensure left alignment
+              originY: 'top',  // Ensure top alignment
+              zIndex: highestIndex + 1
+            });
+
+            this.addControls(img, true);
+            this.canvas.insertAt(this.canvas.getObjects().length, img);
+            this.canvas.setActiveObject(img);
+            this.canvas.renderAll();
+            this.updateObjectsList();
+          });
+        } catch (error) {
+          console.error('Error uploading image:', error);
+        } finally {
+          this.isUploading = false;
+        }
+      }
+    };
+
+    fileInput.click();
   }
 
-  addVideo(): void {
-    // Generate random position within canvas bounds
+  async addVideo(): Promise<void> {
+    if (this.isUploading) {
+      console.log('Upload in progress, please wait...');
+      return;
+    }
+
     const maxLeft = this.canvas.width! - 1280;
     const maxTop = this.canvas.height! - 720;
     const randomLeft = Math.random() * maxLeft;
     const randomTop = Math.random() * maxTop;
 
-    const videoElement = document.createElement('video');
-    const sourceElement = document.createElement('source');
-    
-    videoElement.width = 1280;
-    videoElement.height = 720;
-    videoElement.muted = true;
-    videoElement.appendChild(sourceElement);
-    sourceElement.src = `https://res.cloudinary.com/diarzlyki/video/upload/v1738875626/prisma/Untitled_Project_V1_juf1l5.mp4`; // Random video source
-    videoElement.onended = () => videoElement.play();
+    const fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.accept = 'video/*';
 
-    const videoFabricImage = new FabricImage(videoElement, {
-      left: Math.min(randomLeft, this.canvas.width! - videoElement.width),
-      top: Math.min(randomTop, this.canvas.height! - videoElement.height),
-      originX: 'center',
-      originY: 'center',
-      objectCaching: false,
-    });
+    fileInput.onchange = async (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
 
-    // Insert video at the top layer
-    this.canvas.insertAt(this.canvas.getObjects().length, videoFabricImage);
-    this.canvas.setActiveObject(videoFabricImage);
-    videoElement.play();
+      if (file) {
+        try {
+          this.isUploading = true;
+          const cloudinaryUrl = await firstValueFrom(this.cloudinaryService.uploadFile(file));
+          
+          const videoElement = document.createElement('video');
+          const sourceElement = document.createElement('source');
+          
+          videoElement.width = 1280;
+          videoElement.height = 720;
+          videoElement.muted = true;
+          videoElement.appendChild(sourceElement);
+          sourceElement.src = cloudinaryUrl;
+          videoElement.src = cloudinaryUrl; // Set video element src
+          videoElement.onended = () => videoElement.play();
 
-    // Set up animation frame to continuously render the canvas
-    const render = () => {
-      this.canvas.renderAll();
-      requestAnimationFrame(render);
+          const videoFabricImage = new FabricImage(videoElement, {
+            left: Math.min(randomLeft, this.canvas.width! - videoElement.width),
+            top: Math.min(randomTop, this.canvas.height! - videoElement.height),
+            originX: 'left', // Ensure left alignment
+            originY: 'top',  // Ensure top alignment
+            objectCaching: false
+          });
+          
+          // Set the src property directly on the FabricImage
+          videoFabricImage.set('src', cloudinaryUrl);
+
+          this.addControls(videoFabricImage, false);
+          this.canvas.insertAt(this.canvas.getObjects().length, videoFabricImage);
+          this.canvas.setActiveObject(videoFabricImage);
+          videoElement.play();
+
+          const render = () => {
+            this.canvas.renderAll();
+            requestAnimationFrame(render);
+          };
+          requestAnimationFrame(render);
+          this.updateObjectsList();
+        } catch (error) {
+          console.error('Error uploading video:', error);
+        } finally {
+          this.isUploading = false;
+        }
+      }
     };
-    requestAnimationFrame(render);
-    this.updateObjectsList();
+
+    fileInput.click();
   }
 
   private addControls(obj: any, isImage: boolean = false): void {
@@ -281,98 +462,6 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
     }
   }
 
-  private handleImageEdit(img: FabricImage): void {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'image/*';
-
-    fileInput.onchange = (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      const file = target.files?.[0];
-
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const imgUrl = event.target?.result as string;
-          FabricImage.fromURL(imgUrl, {
-            crossOrigin: 'anonymous'
-          }).then((newImg) => {
-            newImg.set({
-              left: img.left,
-              top: img.top,
-              scaleX: img.scaleX,
-              scaleY: img.scaleY,
-              angle: img.angle,
-              absolutePositioned: img.absolutePositioned
-            });
-            this.canvas.remove(img);
-            this.addControls(newImg, true);
-            this.canvas.insertAt(this.canvas.getObjects().length, newImg);
-            this.canvas.renderAll();
-          });
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-
-    fileInput.click();
-  }
-
-  private handleVideoEdit(video: FabricImage): void {
-    const fileInput = document.createElement('input');
-    fileInput.type = 'file';
-    fileInput.accept = 'video/*';
-
-    fileInput.onchange = (e: Event) => {
-      const target = e.target as HTMLInputElement;
-      const file = target.files?.[0];
-
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const videoUrl = event.target?.result as string;
-          const newVideoElement = document.createElement('video');
-          const newSourceElement = document.createElement('source');
-          
-          newVideoElement.onloadedmetadata = () => {
-            const originalWidth = newVideoElement.videoWidth;
-            const originalHeight = newVideoElement.videoHeight;
-            
-            newVideoElement.width = originalWidth;
-            newVideoElement.height = originalHeight;
-            newVideoElement.muted = true;
-            newVideoElement.appendChild(newSourceElement);
-            newSourceElement.src = videoUrl;
-            newVideoElement.onended = () => newVideoElement.play();
-
-            const newVideoFabricImage = new FabricImage(newVideoElement, {
-              left: video.left,
-              top: video.top,
-              width: originalWidth,
-              height: originalHeight,
-              angle: video.angle,
-              absolutePositioned: video.absolutePositioned,
-              originX: 'center',
-              originY: 'center',
-              objectCaching: false,
-            });
-
-            this.canvas.remove(video);
-            this.addControls(newVideoFabricImage, false);
-            this.canvas.insertAt(this.canvas.getObjects().length, newVideoFabricImage);
-            newVideoElement.play();
-            this.canvas.renderAll();
-          };
-          
-          newVideoElement.src = videoUrl;
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-
-    fileInput.click();
-  }
-
   saveToJson(): void {
     const json = this.canvas.toJSON();
     json.objects.forEach((obj: any) => {
@@ -449,19 +538,15 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
 
   exportJsonFile() {
     const json = this.canvas.toJSON();
-    for(let i = 0; i < json.objects.length; i++) {
-      json.objects[i].src = "";
-    }
-    console.log(json);
-    // const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
-    // const url = URL.createObjectURL(blob);
-
-    // const a = document.createElement('a');
-    // a.href = url;
-    // a.download = 'canvas.json';
-    // a.click();
-
-    // URL.revokeObjectURL(url);
+    
+    this.jsonbinService.updateBin('67a6176cacd3cb34a8d9f7d4',json).subscribe({
+      next: (response: any) => {
+        console.log('Canvas saved successfully!', response);
+      },
+      error: (error: Error) => {
+        console.error('Error saving canvas:', error);
+      }
+    });
   }
 
   private deleteObject(_eventData: TPointerEvent, transform: any): void {
@@ -672,5 +757,19 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
       }
     }
     return '';
+  }
+
+  clearCanvas() {
+    if (this.canvas) {
+      this.canvas.dispose();
+    }
+    this.layers = [];
+    this.selectedObjectIndex = null;
+    this.rectangleCount = 0;
+    this.imageCount = 0;
+    this.videoCount = 0;
+    
+    // Initialize new canvas
+    this.initializeCanvas();
   }
 }
