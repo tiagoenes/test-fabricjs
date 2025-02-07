@@ -1,14 +1,21 @@
 <div style="text-align:center;">
   <canvas style="width:800px;aspect-ratio:16/9;" id="canvasElementId"></canvas>
 </div>
-<!-- button import from json -->
-<button (click)="openFilePicker()">Import JSON</button>
-<input type="file" #fileInput accept=".json" (change)="loadJsonFile($event)" hidden>
 
-<button (click)="exportJsonFile()">Export JSON</button>
-<button (click)="addRectangle()">Add Rectangle</button>
-<button (click)="addImage()">Add Image</button>
-<button (click)="addVideo()">Add Video</button>
+<div class="options-list-container">
+  <div class="options-list-header">
+    <span class="drag-handle">Options</span>
+  </div>
+  <div class="options-list">
+    <button (click)="addRectangle()">Add Rectangle</button>
+    <button (click)="addImage()">Add Image</button>
+    <button (click)="addVideo()">Add Video</button>
+    <button (click)="saveToJson()">Save to JSON</button>
+    <button (click)="exportJsonFile()">Export JSON</button>
+    <input #fileInput type="file" (change)="loadJsonFile($event)" style="display: none;">
+    <button (click)="openFilePicker()">Load JSON</button>
+  </div>
+</div>
 
 <!-- create a list of objects and the zindex position they are in -->
 <div class="objects-list-container" 

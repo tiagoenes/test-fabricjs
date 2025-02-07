@@ -99,46 +99,39 @@
 
 .options-list-container {
   position: fixed;
-  left: 20px;
   top: 20px;
+  left: 20px;
   background: white;
   border: 1px solid #ccc;
   border-radius: 4px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  width: 250px;
   z-index: 1000;
+  min-width: 200px;
 }
 
 .options-list-header {
-  padding: 10px;
+  padding: 8px;
   background: #f5f5f5;
   border-bottom: 1px solid #ccc;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  
-  .drag-handle {
-    cursor: move;
-  }
+  cursor: move;
+  user-select: none;
 }
 
 .options-list {
-  padding: 10px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
 
-  button {
-    padding: 8px 16px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    background: #f8f8f8;
-    cursor: pointer;
-    transition: background-color 0.2s;
-
-    &:hover {
-      background-color: #eee;
-    }
+.options-list button {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  
+  &:hover {
+    background: #f0f0f0;
   }
 }

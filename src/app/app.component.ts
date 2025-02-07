@@ -36,6 +36,13 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
   private imageCount = 0;
   private videoCount = 0;
 
+  // Add these properties to the class
+  private isOptionsDragging = false;
+  private optionsStartY = 0;
+  private optionsStartX = 0;
+  private optionsInitialTop = 0;
+  private optionsInitialLeft = 0;
+
   constructor() {}
 
   ngOnInit() {
@@ -47,19 +54,43 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
 
   ngOnDestroy() {
     if (typeof window !== 'undefined') {
+      // Remove event listeners from both containers
+      const optionsContainer = document.querySelector('.options-list-header') as HTMLElement;
+      const layersContainer = document.querySelector('.objects-list-header') as HTMLElement;
+
+      if (optionsContainer) {
+        optionsContainer.removeEventListener('mousedown', this.onContainerMouseDown.bind(this));
+      }
+      if (layersContainer) {
+        layersContainer.removeEventListener('mousedown', this.onContainerMouseDown.bind(this));
+      }
+
       window.removeEventListener('mousemove', this.onMouseMove.bind(this));
       window.removeEventListener('mouseup', this.onMouseUp.bind(this));
     }
   }
 
   ngAfterViewInit(): void {
-    this.deleteImg = document.createElement('img');
-    this.deleteImg.src = this.deleteIcon;
-    this.editImg = document.createElement('img');
-    this.editImg.src = this.editIcon;
-    this.bringToFrontImg = document.createElement('img');
-    this.bringToFrontImg.src = this.bringToFrontIcon;
-    this.initializeCanvas();
+    if (typeof window !== 'undefined') {
+      // Add event listeners to both containers
+      const optionsContainer = document.querySelector('.options-list-header') as HTMLElement;
+      const layersContainer = document.querySelector('.objects-list-header') as HTMLElement;
+
+      if (optionsContainer) {
+        optionsContainer.addEventListener('mousedown', this.onContainerMouseDown.bind(this));
+      }
+      if (layersContainer) {
+        layersContainer.addEventListener('mousedown', this.onContainerMouseDown.bind(this));
+      }
+
+      this.deleteImg = document.createElement('img');
+      this.deleteImg.src = this.deleteIcon;
+      this.editImg = document.createElement('img');
+      this.editImg.src = this.editIcon;
+      this.bringToFrontImg = document.createElement('img');
+      this.bringToFrontImg.src = this.bringToFrontIcon;
+      this.initializeCanvas();
+    }
   }
 
   initializeCanvas(): void {
@@ -548,36 +579,63 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
 
   onContainerMouseDown(event: MouseEvent) {
     const target = event.target as HTMLElement;
-    if (!target.closest('.objects-list-header .drag-handle')) return;
-
-    this.isDragging = true;
-    this.startY = event.clientY;
-    this.startX = event.clientX;
+    const isOptionsHandle = target.closest('.options-list-header .drag-handle');
+    const isLayersHandle = target.closest('.objects-list-header .drag-handle');
     
-    const container = target.closest('.objects-list-container') as HTMLElement;
-    const rect = container.getBoundingClientRect();
-    this.initialTop = rect.top;
-    this.initialLeft = rect.left;
+    if (!isOptionsHandle && !isLayersHandle) return;
+
+    if (isOptionsHandle) {
+      this.isOptionsDragging = true;
+      this.optionsStartY = event.clientY;
+      this.optionsStartX = event.clientX;
+      
+      const container = target.closest('.options-list-container') as HTMLElement;
+      const rect = container.getBoundingClientRect();
+      this.optionsInitialTop = rect.top;
+      this.optionsInitialLeft = rect.left;
+    } else {
+      this.isDragging = true;
+      this.startY = event.clientY;
+      this.startX = event.clientX;
+      
+      const container = target.closest('.objects-list-container') as HTMLElement;
+      const rect = container.getBoundingClientRect();
+      this.initialTop = rect.top;
+      this.initialLeft = rect.left;
+    }
     
     event.preventDefault();
   }
 
   private onMouseMove(event: MouseEvent) {
-    if (!this.isDragging) return;
+    if (this.isDragging) {
+      const container = document.querySelector('.objects-list-container') as HTMLElement;
+      if (!container) return;
 
-    const container = document.querySelector('.objects-list-container') as HTMLElement;
-    if (!container) return;
+      const deltaX = event.clientX - this.startX;
+      const deltaY = event.clientY - this.startY;
 
-    const deltaX = event.clientX - this.startX;
-    const deltaY = event.clientY - this.startY;
+      container.style.position = 'fixed';
+      container.style.left = `${this.initialLeft + deltaX}px`;
+      container.style.top = `${this.initialTop + deltaY}px`;
+    }
 
-    container.style.position = 'fixed';
-    container.style.left = `${this.initialLeft + deltaX}px`;
-    container.style.top = `${this.initialTop + deltaY}px`;
+    if (this.isOptionsDragging) {
+      const container = document.querySelector('.options-list-container') as HTMLElement;
+      if (!container) return;
+
+      const deltaX = event.clientX - this.optionsStartX;
+      const deltaY = event.clientY - this.optionsStartY;
+
+      container.style.position = 'fixed';
+      container.style.left = `${this.optionsInitialLeft + deltaX}px`;
+      container.style.top = `${this.optionsInitialTop + deltaY}px`;
+    }
   }
 
   private onMouseUp() {
     this.isDragging = false;
+    this.isOptionsDragging = false;
   }
 
   onListItemClick(index: number): void {
