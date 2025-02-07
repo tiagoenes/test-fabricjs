@@ -21,7 +21,7 @@
     Layers
   </div>
   <div class="objects-list">
-    <div *ngFor="let object of objects; let i = index"
+    <div *ngFor="let object of objects.reverse(); let i = index"
          class="object-item"
          [class.dragging]="i === draggedIndex"
          draggable="true"
