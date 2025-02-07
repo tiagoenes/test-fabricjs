@@ -65,8 +65,8 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
   initializeCanvas(): void {
     this.canvas = new Canvas('canvasElementId');
     this.canvas.setDimensions({
-      width: 1280,
-      height: 720
+      width: 1920,
+      height: 1080
     });
     this.canvas.backgroundColor = 'lightgrey';
     this.canvas.renderAll();
@@ -356,42 +356,58 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
 
     if (input.files && input.files.length > 0) {
       const file = input.files[0];
-      console.log('Selected file:', file.name);
-
       const reader = new FileReader();
+      
       reader.onload = (e) => {
         try {
           const jsonData = JSON.parse(e.target!.result as string);
-          console.log('Parsed JSON:', jsonData);
+          
+          // Clear existing canvas
+          this.canvas.clear();
           
           this.canvas.loadFromJSON(jsonData, () => {
-            console.log('Canvas loaded successfully!');
-            // Add controls to all objects after loading
+            // Process each object after loading
             this.canvas.getObjects().forEach(obj => {
-              const isVideo = obj instanceof FabricImage && obj.getElement() instanceof HTMLVideoElement;
-              const isImage = obj instanceof FabricImage && !(obj.getElement() instanceof HTMLVideoElement);
-              
-              this.addControls(obj, isImage);
-              
-              // Restart video playback if it's a video
-              if (isVideo) {
-                const videoElement = obj.getElement() as HTMLVideoElement;
-                videoElement.play();
-                videoElement.onended = () => videoElement.play();
+              if (obj instanceof FabricImage) {
+                const element = obj.getElement();
+                
+                if (element instanceof HTMLVideoElement) {
+                  // Recreate video element
+                  const videoElement = document.createElement('video');
+                  const sourceElement = document.createElement('source');
+                  
+                  videoElement.width = element.width;
+                  videoElement.height = element.height;
+                  videoElement.muted = true;
+                  videoElement.appendChild(sourceElement);
+                  sourceElement.src = element.currentSrc;
+                  videoElement.onended = () => videoElement.play();
+                  
+                  // Update the fabric object with new video element
+                  obj.setElement(videoElement);
+                  videoElement.play();
+                  
+                  this.addControls(obj, false);
+                } else {
+                  // Handle regular images
+                  this.addControls(obj, true);
+                }
+              } else if (obj instanceof Rect) {
+                // Handle rectangles
+                this.addControls(obj, false);
               }
             });
-            
-            this.canvas.renderAll();
-            this.updateObjectsList();
+            setTimeout(() => {
+              this.canvas.renderAll();
+              this.updateObjectsList();
+            }, 1000);
           });
         } catch (error) {
-          console.error('Invalid JSON format:', error);
+          console.error('Error loading JSON:', error);
         }
       };
 
       reader.readAsText(file);
-    } else {
-      console.error('No file selected');
     }
   }
 
@@ -445,7 +461,7 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
         zIndex: obj.get('zIndex') || 0
       };
     });
-    this.layers = this.layers.reverse();
+    
     // Sort canvas objects by z-index in descending order (changed to descending)
     canvasObjects.sort((a, b) => (b.get('zIndex') || 0) - (a.get('zIndex') || 0));
 
