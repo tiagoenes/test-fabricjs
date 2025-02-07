@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, ElementRef, ViewChild } from '@angular/core';
+import { Component, AfterViewInit, ElementRef, ViewChild, OnInit, OnDestroy } from '@angular/core';
 import { Canvas, Rect, FabricImage, util, Control, TPointerEvent } from 'fabric';
 import { CommonModule } from '@angular/common';
 
@@ -9,7 +9,7 @@ import { CommonModule } from '@angular/common';
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
-export class AppComponent implements AfterViewInit {
+export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
   private canvas!: Canvas;
   @ViewChild('fileInput') fileInput!: ElementRef;
   private deleteIcon = "data:image/svg+xml,%3C%3Fxml version='1.0' encoding='utf-8'%3F%3E%3C!DOCTYPE svg PUBLIC '-//W3C//DTD SVG 1.1//EN' 'http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd'%3E%3Csvg version='1.1' id='Ebene_1' xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' x='0px' y='0px' width='595.275px' height='595.275px' viewBox='200 215 230 470' xml:space='preserve'%3E%3Ccircle style='fill:%23F44336;' cx='299.76' cy='439.067' r='218.516'/%3E%3Cg%3E%3Crect x='267.162' y='307.978' transform='matrix(0.7071 -0.7071 0.7071 0.7071 -222.6202 340.6915)' style='fill:white;' width='65.545' height='262.18'/%3E%3Crect x='266.988' y='308.153' transform='matrix(0.7071 0.7071 -0.7071 0.7071 398.3889 -83.3116)' style='fill:white;' width='65.544' height='262.179'/%3E%3C/g%3E%3C/svg%3E";
@@ -18,15 +18,39 @@ export class AppComponent implements AfterViewInit {
   private deleteImg!: HTMLImageElement;
   private editImg!: HTMLImageElement;
   private bringToFrontImg!: HTMLImageElement;
-  objects: { type: string; zIndex: number }[] = [];
+  
+  // Layer management
+  layers: { type: string; zIndex: number }[] = [];
   public draggedIndex: number = -1;
+  public selectedObjectIndex: number | null = null;
+  
+  // Dragging state
   private isDragging = false;
   private startY = 0;
   private startX = 0;
   private initialTop = 0;
   private initialLeft = 0;
+  
+  // Counter variables
+  private rectangleCount = 0;
+  private imageCount = 0;
+  private videoCount = 0;
 
   constructor() {}
+
+  ngOnInit() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('mousemove', this.onMouseMove.bind(this));
+      window.addEventListener('mouseup', this.onMouseUp.bind(this));
+    }
+  }
+
+  ngOnDestroy() {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('mousemove', this.onMouseMove.bind(this));
+      window.removeEventListener('mouseup', this.onMouseUp.bind(this));
+    }
+  }
 
   ngAfterViewInit(): void {
     this.deleteImg = document.createElement('img');
@@ -77,6 +101,7 @@ export class AppComponent implements AfterViewInit {
 
     // Insert rectangle at the top layer
     this.canvas.insertAt(this.canvas.getObjects().length,rectangle);
+    this.canvas.setActiveObject(rectangle);
     this.canvas.renderAll();
     this.updateObjectsList();
   }
@@ -104,6 +129,7 @@ export class AppComponent implements AfterViewInit {
       this.addControls(img, true);
       // Insert image at the top layer
       this.canvas.insertAt(this.canvas.getObjects().length, img);
+      this.canvas.setActiveObject(img);
       this.canvas.renderAll();
       this.updateObjectsList();
     });
@@ -136,6 +162,7 @@ export class AppComponent implements AfterViewInit {
 
     // Insert video at the top layer
     this.canvas.insertAt(this.canvas.getObjects().length, videoFabricImage);
+    this.canvas.setActiveObject(videoFabricImage);
     videoElement.play();
 
     // Set up animation frame to continuously render the canvas
@@ -391,13 +418,34 @@ export class AppComponent implements AfterViewInit {
 
   private updateObjectsList(): void {
     const canvasObjects = this.canvas.getObjects();
-    // Map objects in their natural order (removed .reverse())
-    this.objects = canvasObjects.map(obj => ({
-      type: obj instanceof Rect ? 'Rectangle' : 
-            obj instanceof FabricImage && (obj.getElement() instanceof HTMLVideoElement) ? 'Video' : 'Image',
-      zIndex: obj.get('zIndex') || 0
-    }));
-
+    
+    // Reset counts
+    this.rectangleCount = 0;
+    this.imageCount = 0;
+    this.videoCount = 0;
+    
+    // Map objects in their natural order
+    this.layers = canvasObjects.map(obj => {
+      let type = '';
+      if (obj instanceof Rect) {
+        this.rectangleCount++;
+        type = `Rectangle ${this.rectangleCount}`;
+      } else if (obj instanceof FabricImage) {
+        if (obj.getElement() instanceof HTMLVideoElement) {
+          this.videoCount++;
+          type = `Video ${this.videoCount}`;
+        } else {
+          this.imageCount++;
+          type = `Image ${this.imageCount}`;
+        }
+      }
+      
+      return {
+        type: type,
+        zIndex: obj.get('zIndex') || 0
+      };
+    });
+    this.layers = this.layers.reverse();
     // Sort canvas objects by z-index in descending order (changed to descending)
     canvasObjects.sort((a, b) => (b.get('zIndex') || 0) - (a.get('zIndex') || 0));
 
@@ -410,36 +458,69 @@ export class AppComponent implements AfterViewInit {
     if (canvasObjects.length > 0) {
       this.canvas.setActiveObject(canvasObjects[0]); // Changed to get first object (highest z-index)
     }
+
+    // Update selectedObjectIndex based on active object
+    const activeObject = this.canvas.getActiveObject();
+    if (activeObject) {
+      this.selectedObjectIndex = this.layers.findIndex(obj => 
+        obj.type === this.getObjectType(activeObject)
+      );
+    } else {
+      this.selectedObjectIndex = null;
+    }
   }
 
-  onDragStart(index: number) {
+  onDragStart(event: DragEvent, index: number) {
+    // Stop propagation to prevent container drag
+    event.stopPropagation();
     this.draggedIndex = index;
+    // Set dragged data for HTML5 drag and drop
+    event.dataTransfer?.setData('text/plain', index.toString());
   }
 
   onDragOver(event: DragEvent) {
     event.preventDefault();
+    event.stopPropagation();
+    const target = event.target as HTMLElement;
+    // Add visual feedback for drop target
+    const listItem = target.closest('.list-item');
+    if (listItem) {
+      listItem.classList.add('drag-over');
+    }
+  }
+
+  onDragLeave(event: DragEvent) {
+    const target = event.target as HTMLElement;
+    const listItem = target.closest('.list-item');
+    if (listItem) {
+      listItem.classList.remove('drag-over');
+    }
   }
 
   onDrop(event: DragEvent, dropIndex: number) {
     event.preventDefault();
+    event.stopPropagation();
+    
+    // Remove visual feedback
+    const target = event.target as HTMLElement;
+    const listItem = target.closest('.list-item');
+    if (listItem) {
+      listItem.classList.remove('drag-over');
+    }
+
     if (this.draggedIndex === dropIndex) return;
 
-    // Reorder array
-    const item = this.objects[this.draggedIndex];
-    this.objects.splice(this.draggedIndex, 1);
-    this.objects.splice(dropIndex, 0, item);
+    // Rest of the drop logic remains the same
+    const item = this.layers[this.draggedIndex];
+    this.layers.splice(this.draggedIndex, 1);
+    this.layers.splice(dropIndex, 0, item);
 
-    // Get all canvas objects
     const canvasObjects = this.canvas.getObjects();
-
-    // Update object positions based on new order
-    this.objects.forEach((obj, index) => {
+    this.layers.forEach((obj, index) => {
       const canvasObj = canvasObjects.find(
-        cObj => (cObj instanceof Rect && obj.type === 'Rectangle') ||
-                (cObj instanceof FabricImage && obj.type === (cObj.getElement() instanceof HTMLVideoElement ? 'Video' : 'Image'))
+        cObj => this.getObjectType(cObj) === obj.type
       );
       if (canvasObj) {
-        // Remove and insert at new position
         this.canvas.remove(canvasObj);
         this.canvas.insertAt(index, canvasObj);
       }
@@ -450,32 +531,63 @@ export class AppComponent implements AfterViewInit {
   }
 
   onContainerMouseDown(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.objects-list-header .drag-handle')) return;
+
     this.isDragging = true;
     this.startY = event.clientY;
     this.startX = event.clientX;
     
-    const container = (event.target as HTMLElement).closest('.objects-list-container') as HTMLElement;
+    const container = target.closest('.objects-list-container') as HTMLElement;
     const rect = container.getBoundingClientRect();
     this.initialTop = rect.top;
     this.initialLeft = rect.left;
     
-    // Prevent text selection while dragging
     event.preventDefault();
   }
 
-  onContainerMouseMove(event: MouseEvent) {
+  private onMouseMove(event: MouseEvent) {
     if (!this.isDragging) return;
-    
-    const container = (event.target as HTMLElement).closest('.objects-list-container') as HTMLElement;
-    const deltaY = event.clientY - this.startY;
+
+    const container = document.querySelector('.objects-list-container') as HTMLElement;
+    if (!container) return;
+
     const deltaX = event.clientX - this.startX;
-    
+    const deltaY = event.clientY - this.startY;
+
     container.style.position = 'fixed';
-    container.style.top = `${this.initialTop + deltaY}px`;
     container.style.left = `${this.initialLeft + deltaX}px`;
+    container.style.top = `${this.initialTop + deltaY}px`;
   }
 
-  onContainerMouseUp() {
+  private onMouseUp() {
     this.isDragging = false;
+  }
+
+  onListItemClick(index: number): void {
+    const canvasObjects = this.canvas.getObjects();
+    // Find the corresponding canvas object
+    const selectedObject = canvasObjects.find((obj, i) => 
+      this.layers[index].type === this.getObjectType(obj)
+    );
+    
+    if (selectedObject) {
+      this.canvas.setActiveObject(selectedObject);
+      this.canvas.requestRenderAll();
+      this.selectedObjectIndex = index;
+    }
+  }
+
+  private getObjectType(obj: any): string {
+    if (obj instanceof Rect) {
+      return `Rectangle ${this.layers.filter(o => o.type.startsWith('Rectangle')).length}`;
+    } else if (obj instanceof FabricImage) {
+      if (obj.getElement() instanceof HTMLVideoElement) {
+        return `Video ${this.layers.filter(o => o.type.startsWith('Video')).length}`;
+      } else {
+        return `Image ${this.layers.filter(o => o.type.startsWith('Image')).length}`;
+      }
+    }
+    return '';
   }
 }
