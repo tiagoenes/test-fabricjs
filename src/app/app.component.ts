@@ -96,10 +96,10 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
   initializeCanvas(): void {
     this.canvas = new Canvas('canvasElementId');
     this.canvas.setDimensions({
-      width: 1920,
-      height: 1080
+      width: 1280,
+      height: 720,
     });
-    this.canvas.backgroundColor = 'lightgrey';
+    this.canvas.backgroundColor = 'white';
     this.canvas.renderAll();
   }
 
@@ -375,6 +375,11 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
 
   saveToJson(): void {
     const json = this.canvas.toJSON();
+    json.objects.forEach((obj: any) => {
+      if (obj.type === 'image' || obj.type === 'video') {
+        obj.src = '';
+      }
+    });
     console.log(json);
   }
 
@@ -443,16 +448,20 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
   }
 
   exportJsonFile() {
-    const json = JSON.stringify(this.canvas.toJSON(), null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    const json = this.canvas.toJSON();
+    for(let i = 0; i < json.objects.length; i++) {
+      json.objects[i].src = "";
+    }
+    console.log(json);
+    // const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+    // const url = URL.createObjectURL(blob);
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'canvas.json';
-    a.click();
+    // const a = document.createElement('a');
+    // a.href = url;
+    // a.download = 'canvas.json';
+    // a.click();
 
-    URL.revokeObjectURL(url);
+    // URL.revokeObjectURL(url);
   }
 
   private deleteObject(_eventData: TPointerEvent, transform: any): void {
