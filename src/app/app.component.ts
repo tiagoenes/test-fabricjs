@@ -1,4 +1,4 @@
-import { Component, AfterViewInit, ElementRef, ViewChild, OnInit, OnDestroy } from '@angular/core';
+import { Component, AfterViewInit, ElementRef, ViewChild, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { Canvas, Rect, FabricImage, util, Control, TPointerEvent } from 'fabric';
 import { CommonModule } from '@angular/common';
 import { CloudinaryService } from './services/cloudinary.service';
@@ -52,8 +52,8 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
   private isUploading = false;
 
   // Add these new properties
-  public colorPickerLeft: number = 0;
-  public colorPickerTop: number = 0;
+  public colorPickerLeft: number = 300;
+  public colorPickerTop: number = 20;
   private isColorPickerDragging = false;
   private colorPickerStartX = 0;
   private colorPickerStartY = 0;
@@ -63,7 +63,8 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
 
   constructor(
     private cloudinaryService: CloudinaryService,
-    private jsonbinService: JsonbinService
+    private jsonbinService: JsonbinService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -118,6 +119,7 @@ export class AppComponent implements AfterViewInit, OnInit, OnDestroy {
       if (colorPicker) {
         this.colorPickerLeft = (window.innerWidth - colorPicker.offsetWidth) / 2;
         this.colorPickerTop = 20; // 20px from top
+        this.cdr.detectChanges();
       }
     }
   }
